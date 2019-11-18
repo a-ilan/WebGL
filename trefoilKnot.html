@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>WebGL</title>
+	</head>
+
+	<body style="margin: 0">
+		<canvas id="myCanvas"></canvas>
+		
+<script type="vertex" id="vs">
+#version 300 es
+layout (location=0) in vec3 inPosition;
+layout (location=1) in vec3 inNormal;
+layout (location=2) in vec2 inTexCoord;
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+out vec3 normal;
+out vec2 texCoord;
+
+void main() {
+	mat3 normalMatrix = inverse(transpose(mat3(modelViewMatrix)));
+	normal = normalize(normalMatrix*inNormal);
+	texCoord = inTexCoord;
+	gl_Position = projectionMatrix*modelViewMatrix*modelViewMatrix*vec4(inPosition,1);
+}
+</script>
+
+<script type="fragment" id="fs">
+#version 300 es
+precision mediump float;
+
+in vec3 normal;
+in vec2 texCoord;
+uniform sampler2D texSampler;
+out vec4 fragColor;
+
+void main() {
+	vec3 lightVec = normalize(vec3(0,0,1));
+	float diffuse = max(dot(normal,lightVec),0.0);
+	vec3 color = texture(texSampler,texCoord).xyz*diffuse;
+	fragColor = vec4(color,1);
+}
+</script>
+
+<script src="vector_matrix_math.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+let width = 800;
+let height = 600;
+let aspect = height/width;
+let indexCount = 0; // index buffer
+
+start();
+async function start() {
+	// init webgl
+	const canvas = document.getElementById('myCanvas');
+	canvas.width = width;
+	canvas.height = height;
+	const gl = canvas.getContext('webgl2');
+	if (!gl) {
+		document.write('WebGL 2.0 is not supported');
+		return;
+	}
+	
+	//disable context menu on right click
+	canvas.addEventListener( 'contextmenu', function ( event ) {
+		event.preventDefault();
+	}, false );
+
+	// Shaders
+	let vsSource = document.getElementById("vs").text.trim();
+	let fsSource = document.getElementById("fs").text.trim();
+	let vertexShader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vertexShader, vsSource);
+	gl.compileShader(vertexShader);
+	if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+	  console.error(gl.getShaderInfoLog(vertexShader));
+	}
+	let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(fragmentShader, fsSource);
+	gl.compileShader(fragmentShader);
+	if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+	  console.error(gl.getShaderInfoLog(fragmentShader));
+	}
+	let program = gl.createProgram();
+	gl.attachShader(program, vertexShader);
+	gl.attachShader(program, fragmentShader);
+	gl.linkProgram(program);
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+	  console.error(gl.getProgramInfoLog(program));
+	}
+	gl.detachShader(program, vertexShader);
+	gl.detachShader(program, fragmentShader);
+	gl.deleteShader(vertexShader);
+	gl.deleteShader(fragmentShader);
+	gl.useProgram(program);
+	
+	// Uniforms
+	let projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
+	let modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
+	let textureLocation = gl.getUniformLocation(program, "texSampler");
+	let projectionMatrix = perspective(45, width / height, 0.1, 100.0);
+	let modelViewMatrix = transform(1,0,0,-5);
+	gl.uniformMatrix4fv(modelViewMatrixLocation,false, new Float32Array(transpose(modelViewMatrix)));
+	gl.uniformMatrix4fv(projectionMatrixLocation,false, new Float32Array(transpose(projectionMatrix)));
+	gl.uniform1i(textureLocation,0); // GL_TEXTURE0
+	
+	//Texture
+	let tex_size = 8;
+	texture = gl.createTexture(); //generate one texture
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	let pixel_count = tex_size * tex_size;
+	let pixels = [];
+	for (let i = 0; i < pixel_count; i++) {
+		if (i % tex_size & 1 ^ i / tex_size & 1){
+			pixels.push(255); //red
+			pixels.push(200); //green
+			pixels.push(0); //blue
+			pixels.push(255); //alpha
+		} else {
+			pixels.push(0); //red
+			pixels.push(200); //green
+			pixels.push(255); //blue
+			pixels.push(255); //alpha
+		}
+	}
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex_size, tex_size, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(pixels));
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.activeTexture(gl.TEXTURE0);
+	
+	// obj data
+	let obj = knotMesh(64, 8);
+	let vertexArray = obj.vertices;
+	let normalArray = obj.normals;
+	let texCoordArray = obj.texCoords;
+	let indexArray = obj.indices;
+	indexCount = indexArray.length;
+	
+	// Vertex Buffer
+	let positionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(0);
+	
+	// Normal buffer
+	let normalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalArray), gl.STATIC_DRAW);
+	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(1);
+	
+	// texture coords buffer
+	let texCoordBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoordArray), gl.STATIC_DRAW);
+	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(2);
+	
+	// Index buffer
+	let indexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), gl.STATIC_DRAW);
+	
+	// setting
+	gl.enable(gl.DEPTH_TEST);
+	gl.enable(gl.CULL_FACE);
+	//gl.enable(gl.TEXTURE_2D);
+	gl.cullFace(gl.BACK);
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+	
+	// Draw
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
+	
+	//free memory
+	gl.deleteProgram(program);
+	gl.deleteBuffer(positionBuffer);
+	gl.deleteBuffer(normalBuffer);
+	gl.deleteBuffer(texCoordBuffer);
+	gl.deleteBuffer(indexBuffer);
+	gl.deleteTexture(texture);
+};
+
+//nx - number of segments in the knot (each segment is a circle)
+//ny - number of points in each segment
+function knotMesh(nx, ny) {
+	let radius = 0.5; // radius of each segment
+	  // the vertices at the seam are not shared for texture mapping
+	  // to avoid the texture coordinates rolling back to 0 at the seam
+	let vert_count = (nx+1) * (ny+1); // number of vertices
+	let index_count = 6 * nx*ny; // number of indices
+	
+	let mesh = {
+		vertices: new Array(vert_count*3),
+		normals: new Array(vert_count*3),
+		texCoords: new Array(vert_count*2),
+		indices: new Array(index_count)
+	};
+	
+	//vertices
+	for (let j = 0; j < nx+1; j++) {
+		for (let i = 0; i < ny+1; i++) {
+			// find the vertex position of the current segment
+			let t = j * (2*Math.PI)/nx;
+			let pos = trefoilKnot(t);
+			
+			//calculate normal and tangent vectors
+			t += 0.001;
+			let next_pos = trefoilKnot(t);
+			let tangent = vec3_normalize(vec3_sub(next_pos,pos));
+			let normal = vec3_normalize(vec3_cross(pos, next_pos));
+			
+			//rotate normal around tangent 
+			let ang = (i * (2*Math.PI)/ny); // the amount to rotate around the tangent
+			normal = vec3_rotate(normal, ang, tangent);
+			pos = vec3_add(pos, vec3_mul(normal,radius)); //the actual position of the vertex
+			
+			//vertex
+			let index = j * (ny+1) + i;
+			vec3_set(mesh.vertices, index, pos);
+			vec3_set(mesh.normals, index, normal);
+			vec2_set(mesh.texCoords, index, [8.0*j/nx,1.0*i/ny]);
+		}
+	}
+
+	// indices
+	// create a quad for each vertex
+	for (let j = 0; j < nx+1; j++) {
+		if (j === nx) continue; // skip the last segment
+		for (let i = 0; i < ny+1; i++) {
+			// j - current segment
+			// i - point of the segment
+			if (i === ny) continue; // skip the last point in the segment
+			let index = j * ny + i;
+
+			//first triangle
+			mesh.indices[index * 6] =     (j + 0) * (ny + 1) + (i + 0);
+			mesh.indices[index * 6 + 1] = (j + 0) * (ny + 1) + (i + 1);
+			mesh.indices[index * 6 + 2] = (j + 1) * (ny + 1) + (i + 1);
+
+			//second triangle
+			mesh.indices[index * 6 + 3] = (ny + 1) * (j + 0) + (i + 0);
+			mesh.indices[index * 6 + 4] = (ny + 1) * (j + 1) + (i + 1);
+			mesh.indices[index * 6 + 5] = (ny + 1) * (j + 1) + (i + 0);
+		}
+	}
+	return mesh;
+}
+
+
+function trefoilKnot(t) {
+	return [
+		Math.sin(t) + 2.0 * Math.sin(2.0 * t),
+		Math.cos(t) - 2.0 * Math.cos(2.0 * t),
+		-Math.sin(3.0 * t)
+	];
+}
+
+
+</script>
+
+ 
+
+	</body>
+</html>
+
