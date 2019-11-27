@@ -79,6 +79,20 @@ vec2 = {
 	}
 };
 
+color = {
+	serialize: function(arr){
+		result = [];
+		for(let i = 0; i < arr.length; i++){
+			result.push(arr[i].r*255);
+			result.push(arr[i].g*255);
+			result.push(arr[i].b*255);
+			result.push(arr[i].a*255);
+		}
+		return new Uint8Array(result);
+	}
+};
+
+// column-major order
 mat4 = {
 	transpose: function(matrix){
 		return new Float32Array([

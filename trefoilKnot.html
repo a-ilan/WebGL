@@ -113,18 +113,12 @@ async function start() {
 	let pixels = [];
 	for (let i = 0; i < pixel_count; i++) {
 		if (i % tex_size & 1 ^ i / tex_size & 1){
-			pixels.push(255); //red
-			pixels.push(200); //green
-			pixels.push(0); //blue
-			pixels.push(255); //alpha
+			pixels.push({r: 1, g: 0.8, b: 0, a: 1});
 		} else {
-			pixels.push(0); //red
-			pixels.push(200); //green
-			pixels.push(255); //blue
-			pixels.push(255); //alpha
+			pixels.push({r: 0, g: 0.8, b: 1, a: 1});
 		}
 	}
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex_size, tex_size, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(pixels));
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex_size, tex_size, 0, gl.RGBA, gl.UNSIGNED_BYTE, color.serialize(pixels));
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
