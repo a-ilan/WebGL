@@ -99,10 +99,10 @@ async function start() {
 	let projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
 	let modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
 	let textureLocation = gl.getUniformLocation(program, "texSampler");
-	let projectionMatrix = perspective(45, width / height, 0.1, 100.0);
-	let modelViewMatrix = transform(1,0,0,-5);
-	gl.uniformMatrix4fv(modelViewMatrixLocation,false, new Float32Array(transpose(modelViewMatrix)));
-	gl.uniformMatrix4fv(projectionMatrixLocation,false, new Float32Array(transpose(projectionMatrix)));
+	let projectionMatrix = mat4.perspective(45, width / height, 0.1, 100.0);
+	let modelViewMatrix = mat4.translate(0,0,-5);
+	gl.uniformMatrix4fv(modelViewMatrixLocation,false, modelViewMatrix);
+	gl.uniformMatrix4fv(projectionMatrixLocation,false, projectionMatrix);
 	gl.uniform1i(textureLocation,0); // GL_TEXTURE0
 	
 	//Texture
@@ -142,28 +142,28 @@ async function start() {
 	// Vertex Buffer
 	let positionBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
 	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(0);
 	
 	// Normal buffer
 	let normalBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalArray), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, normalArray, gl.STATIC_DRAW);
 	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(1);
 	
 	// texture coords buffer
 	let texCoordBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoordArray), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, texCoordArray, gl.STATIC_DRAW);
 	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(2);
 	
 	// Index buffer
 	let indexBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
 	
 	// setting
 	gl.enable(gl.DEPTH_TEST);
@@ -194,12 +194,10 @@ function knotMesh(nx, ny) {
 	let vert_count = (nx+1) * (ny+1); // number of vertices
 	let index_count = 6 * nx*ny; // number of indices
 	
-	let mesh = {
-		vertices: new Array(vert_count*3),
-		normals: new Array(vert_count*3),
-		texCoords: new Array(vert_count*2),
-		indices: new Array(index_count)
-	};
+	let vertices = new Array(vert_count);
+	let normals = new Array(vert_count);
+	let texCoords = new Array(vert_count);
+	let indices = new Uint16Array(index_count)
 	
 	//vertices
 	for (let j = 0; j < nx+1; j++) {
@@ -211,19 +209,21 @@ function knotMesh(nx, ny) {
 			//calculate normal and tangent vectors
 			t += 0.001;
 			let next_pos = trefoilKnot(t);
-			let tangent = vec3_normalize(vec3_sub(next_pos,pos));
-			let normal = vec3_normalize(vec3_cross(pos, next_pos));
+			let tangent = vec3.normalize(vec3.sub(next_pos,pos));
+			let normal = vec3.normalize(vec3.cross(pos, next_pos));
 			
 			//rotate normal around tangent 
 			let ang = (i * (2*Math.PI)/ny); // the amount to rotate around the tangent
-			normal = vec3_rotate(normal, ang, tangent);
-			pos = vec3_add(pos, vec3_mul(normal,radius)); //the actual position of the vertex
+			normal = vec3.rotate(normal, ang, tangent);
+			pos = vec3.add(pos, vec3.mul(normal,radius)); //the actual position of the vertex
 			
 			//vertex
 			let index = j * (ny+1) + i;
-			vec3_set(mesh.vertices, index, pos);
-			vec3_set(mesh.normals, index, normal);
-			vec2_set(mesh.texCoords, index, [8.0*j/nx,1.0*i/ny]);
+			vertices[index] = pos;
+			normals[index] = normal;
+			texCoords[index] = {
+				x: 8.0*j/nx, 
+				y: 1.0*i/ny };
 		}
 	}
 
@@ -238,26 +238,32 @@ function knotMesh(nx, ny) {
 			let index = j * ny + i;
 
 			//first triangle
-			mesh.indices[index * 6] =     (j + 0) * (ny + 1) + (i + 0);
-			mesh.indices[index * 6 + 1] = (j + 0) * (ny + 1) + (i + 1);
-			mesh.indices[index * 6 + 2] = (j + 1) * (ny + 1) + (i + 1);
+			indices[index * 6] =     (j + 0) * (ny + 1) + (i + 0);
+			indices[index * 6 + 1] = (j + 0) * (ny + 1) + (i + 1);
+			indices[index * 6 + 2] = (j + 1) * (ny + 1) + (i + 1);
 
 			//second triangle
-			mesh.indices[index * 6 + 3] = (ny + 1) * (j + 0) + (i + 0);
-			mesh.indices[index * 6 + 4] = (ny + 1) * (j + 1) + (i + 1);
-			mesh.indices[index * 6 + 5] = (ny + 1) * (j + 1) + (i + 0);
+			indices[index * 6 + 3] = (ny + 1) * (j + 0) + (i + 0);
+			indices[index * 6 + 4] = (ny + 1) * (j + 1) + (i + 1);
+			indices[index * 6 + 5] = (ny + 1) * (j + 1) + (i + 0);
 		}
 	}
-	return mesh;
+	
+	return {
+		vertices: vec3.serialize(vertices),
+		normals: vec3.serialize(normals),
+		texCoords: vec2.serialize(texCoords),
+		indices: indices
+	};
 }
 
 
 function trefoilKnot(t) {
-	return [
-		Math.sin(t) + 2.0 * Math.sin(2.0 * t),
-		Math.cos(t) - 2.0 * Math.cos(2.0 * t),
-		-Math.sin(3.0 * t)
-	];
+	return {
+		x: Math.sin(t) + 2.0 * Math.sin(2.0 * t),
+		y: Math.cos(t) - 2.0 * Math.cos(2.0 * t),
+		z: -Math.sin(3.0 * t)
+	};
 }
 
 

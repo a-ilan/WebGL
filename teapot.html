@@ -91,10 +91,10 @@ async function start() {
 	// Uniforms
 	let projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
 	let modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
-	let projectionMatrix = perspective(45, width / height, 0.1, 100.0);
-	let modelViewMatrix = transform(1,0,0,-2);
-	gl.uniformMatrix4fv(modelViewMatrixLocation,false, new Float32Array(transpose(modelViewMatrix)));
-	gl.uniformMatrix4fv(projectionMatrixLocation,false, new Float32Array(transpose(projectionMatrix)));
+	let projectionMatrix = mat4.perspective(45, width / height, 0.1, 100.0);
+	let modelViewMatrix = mat4.translate(0,0,-2);
+	gl.uniformMatrix4fv(modelViewMatrixLocation,false, modelViewMatrix);
+	gl.uniformMatrix4fv(projectionMatrixLocation,false, projectionMatrix);
 	
 	// obj data
 	let objContent = await loadFile("resource/teapot.obj");
