@@ -17,7 +17,12 @@ vec3 = {
 			y: a.y+b.y+c.y, 
 			z: a.z+b.z+c.z };
 	},
-
+	mul: function(a,b){
+		return {
+			x: a.x*b, 
+			y: a.y*b, 
+			z: a.z*b };
+	},
 	div: function(a,b){
 		return {
 			x: a.x/b, 
@@ -30,13 +35,6 @@ vec3 = {
 		var length=Math.sqrt(a*a+b*b+c*c);
 		if(length == 0) length = 1;
 		return {x: a/length, y: b/length, z: c/length};
-	},
-
-	mul: function(a,b){
-		return {
-			x: a.x*b , 
-			y: a.y*b, 
-			z: a.z*b };
 	},
 
 	cross: function(a,b){
@@ -57,38 +55,37 @@ vec3 = {
 		return vec3.add(a,b,c);
 	},
 	
-	serialize: function(arr){
-		result = [];
-		for(let i = 0; i < arr.length; i++){
-			result.push(arr[i].x);
-			result.push(arr[i].y);
-			result.push(arr[i].z);
-		}
-		return new Float32Array(result);
+	create: function(x,y,z){
+		return {x: x, y: y, z: z};
 	}
 };
 
 vec2 = {
-	serialize: function(arr){
-		result = [];
-		for(let i = 0; i < arr.length; i++){
-			result.push(arr[i].x);
-			result.push(arr[i].y);
-		}
-		return new Float32Array(result);
-	}
-};
-
-color = {
-	serialize: function(arr){
-		result = [];
-		for(let i = 0; i < arr.length; i++){
-			result.push(arr[i].r*255);
-			result.push(arr[i].g*255);
-			result.push(arr[i].b*255);
-			result.push(arr[i].a*255);
-		}
-		return new Uint8Array(result);
+	create: function(x,y){
+		return {x: x, y: y};
+	},
+	add: function(a,b,c){
+		if(!c) return {
+			x: a.x+b.x, 
+			y: a.y+b.y};
+		return {
+			x: a.x+b.x+c.x, 
+			y: a.y+b.y+c.y };
+	},
+	sub: function(a,b){
+		return {
+			x: a.x-b.x, 
+			y: a.y-b.y };
+	},
+	mul: function(a,b){
+		return {
+			x: a.x*b, 
+			y: a.y*b };
+	},
+	div: function(a,b){
+		return {
+			x: a.x/b, 
+			y: a.y/b };
 	}
 };
 
