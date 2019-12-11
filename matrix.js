@@ -44,7 +44,7 @@ vec3 = {
 			z: a.x * b.y - a.y * b.x };
 	},
 	dot: function(a,b){
-		return a.x*b.y + a.y*b.y + a.z*b.z;
+		return a.x*b.x + a.y*b.y + a.z*b.z;
 	},
 
 	rotate: function(v, angle, axis){
@@ -57,6 +57,10 @@ vec3 = {
 	
 	create: function(x,y,z){
 		return {x: x, y: y, z: z};
+	},
+	
+	equals: function(a,b){
+		return a.x === b.x && a.y === b.y && a.z === b.z;
 	}
 };
 
@@ -91,42 +95,81 @@ vec2 = {
 
 // column-major order
 mat4 = {
+	create: function(){
+		return [
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1
+		];
+	},
 	transpose: function(matrix){
-		return new Float32Array([
+		return [
 			matrix[0], matrix[4], matrix[8], matrix[12],
 			matrix[1], matrix[5], matrix[9], matrix[13],
 			matrix[2], matrix[6], matrix[10], matrix[14],
 			matrix[3], matrix[7], matrix[11], matrix[15]
-		]);
+		];
 	},
 	frustum: function(left,right,bottom,top,near,far){
 		let width=right-left,height=top-bottom,depth=far-near;
-		return mat4.transpose([
+		return [
 			near*2/width, 0, (right+left)/width, 0,
 			0, near*2/height, (top+bottom)/height, 0,
 			0, 0, -(far+near)/depth, -(far*near*2)/depth,
 			0, 0, -1, 0
-		]);
+		];
 	},
 	perspective: function(fov,aspect,near,far){
 		let top=near*Math.tan(fov*Math.PI/360);
 		let right=top*aspect;
 		return mat4.frustum(-right,right,-top,top,near,far);
 	},
+	mul: function(){
+		if(arguments.length < 2) return null;
+		let result = arguments[0];
+		for(let a = 0; a < arguments.length-1; a++){
+			let A = result.slice(); // copy
+			let B = arguments[a+1];
+			
+			for(let j = 0; j < 4; j++){ // row
+				for(let i = 0; i < 4; i++){ // column
+					result[i+j*4] = 0;
+					for(let k = 0; k < 4; k++){
+						result[i+j*4] += A[k+j*4] *B[i+k*4];
+					}
+				}
+			}
+		}
+		return result;
+	},
 	translate: function(x,y,z){
-		return mat4.transpose([
+		return [
 			1, 0, 0, x,
 			0, 1, 0, y,
 			0, 0, 1, z,
 			0, 0, 0, 1
-		]);
+		];
 	},
 	scale: function(value){
-		return mat4.transpose([
+		return [
 			value, 0, 0, 0,
 			0, value, 0, 0,
 			0, 0, value, 0,
 			0, 0, 0, 1
-		]);
+		];
+	},
+	rotate: function(angle,axis){
+		let u = vec3.normalize(axis);
+		let x = u.x, y = u.y, z = u.z;
+		let c = Math.cos(angle);
+		let s = Math.sin(angle);
+		let t = 1 - c;
+		return [
+			t*x*x + c,   t*x*y - z*s, t*x*z + y*s, 0,
+			t*x*y + z*s, t*y*y + c,   t*y*z - x*s, 0,
+			t*x*z - y*s, t*y*z + x*s, t*z*z + c, 0,
+			0,0,0, 1
+		];
 	}
 };

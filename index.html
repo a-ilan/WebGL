@@ -31,15 +31,24 @@ body {
 }
 		</style>
 	</head>
-
+	
 	<body>
 		<div id="sidenav">
-			<a style="display: block;" href="trefoilKnot.html" target="page">Trefoil Knot</a>
-			<a style="display: block;" href="icosahedron.html" target="page">Icosahedron</a>
-			<a style="display: block;" href="teapot.html" target="page">Teapot</a>
-			<a style="display: block;" href="mandelbrot.html" target="page">Mandelbrot Set</a>
+			<a style="display: block;" href="?trefoilKnot.html">Trefoil Knot</a>
+			<a style="display: block;" href="?icosahedron.html">Icosahedron</a>
+			<a style="display: block;" href="?teapot.html">Teapot</a>
+			<a style="display: block;" href="?mandelbrot.html">Mandelbrot Set</a>
 		</div>
 		<iframe src="trefoilKnot.html" id="page" name="page" width="1000", height="650"></iframe>
 	</body>
-	
+	<script>
+		setIFrame();
+		function setIFrame(){
+			var params = window.location.toString().split("?");
+			if(params.length !== 2) return;
+			params = params[1];
+			if(/^\w*\.html$/.test(params) === false) return;
+			document.getElementById('page').src = params;
+		}
+	</script>
 </html>

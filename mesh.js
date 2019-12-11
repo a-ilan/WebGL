@@ -5,6 +5,7 @@ function serializeMesh(mesh){
 	for(let i = 0; i < vertexCount; i++){
 		if(mesh.hasOwnProperty("positions")){
 			let pos = mesh.positions[i];
+			if(pos === undefined) continue;
 			vertices.push(pos.x, pos.y, pos.z);
 		}
 		if(mesh.hasOwnProperty("normals")){
@@ -212,7 +213,7 @@ function knotMesh(nx, ny) {
 	let positions = new Array(vertexCount);
 	let normals = new Array(vertexCount);
 	let texCoords = new Array(vertexCount);
-	let faces = new Array(faceCount)
+	let faces = []; //new Array(faceCount);
 	
 	//vertices
 	for (let j = 0; j < nx+1; j++) {
@@ -220,22 +221,18 @@ function knotMesh(nx, ny) {
 			// find the vertex position of the current segment
 			let t = j * (2*Math.PI)/nx;
 			let pos = trefoilKnotPoint(t);
+			let tangent = trefoilKnotTangent(t);
+			let normal = trefoilKnotNormal(t);
 			
-			//calculate normal and tangent vectors
-			t += 0.001;
-			let next_pos = trefoilKnotPoint(t);
-			let tangent = vec3.normalize(vec3.sub(next_pos,pos));
-			let normal = vec3.normalize(vec3.cross(pos, next_pos));
-			
-			//rotate normal around tangent 
+			// create a loop around the tangent 
 			let ang = (i * (2*Math.PI)/ny); // the amount to rotate around the tangent
-			normal = vec3.rotate(normal, ang, tangent);
-			pos = vec3.add(pos, vec3.mul(normal,radius)); //the actual position of the vertex
+			let binormal = vec3.rotate(normal, ang, tangent);
+			pos = vec3.add(pos, vec3.mul(binormal,radius)); //the actual position of the vertex
 			
 			//vertex
 			let index = j * (ny+1) + i;
 			positions[index] = pos;
-			normals[index] = normal;
+			normals[index] = binormal;
 			texCoords[index] = {
 				x: 8.0*j/nx, 
 				y: 1.0*i/ny };
@@ -251,18 +248,16 @@ function knotMesh(nx, ny) {
 			// i - point of the segment
 			if (i === ny) continue; // skip the last point in the segment
 			let index = j * ny + i;
-
-			//first triangle
-			faces[index * 2 + 0] =  [
-				(j + 0) * (ny + 1) + (i + 0),  // index 1
-				(j + 0) * (ny + 1) + (i + 1),  // index 2
-				(j + 1) * (ny + 1) + (i + 1)]; // index 3
-
-			//second triangle
-			faces[index * 2 + 1] = [
-				(ny + 1) * (j + 0) + (i + 0),  // index 1
-				(ny + 1) * (j + 1) + (i + 1),  // index 2
-				(ny + 1) * (j + 1) + (i + 0)]; // index 3
+			
+			faces.push([ //first triangle
+				(j + 0) * (ny + 1) + (i + 0),   // index 1
+				(j + 0) * (ny + 1) + (i + 1),   // index 2
+				(j + 1) * (ny + 1) + (i + 1)]); // index 3
+			
+			faces.push([ //second triangle
+				(ny + 1) * (j + 0) + (i + 0),   // index 1
+				(ny + 1) * (j + 1) + (i + 1),   // index 2
+				(ny + 1) * (j + 1) + (i + 0)]); // index 3
 		}
 	}
 	
@@ -281,6 +276,21 @@ function trefoilKnotPoint(t) {
 		y: Math.cos(t) - 2.0 * Math.cos(2.0 * t),
 		z: -Math.sin(3.0 * t)
 	};
+}
+
+// derivative of trefoil knot
+function trefoilKnotTangent(t) {
+	return vec3.normalize({
+		x: Math.cos(t) + 4.0 * Math.cos(2.0 * t),
+		y: - Math.sin(t) + 4.0 * Math.sin(2.0 * t),
+		z: -3.0*Math.cos(3.0 * t)
+	});
+}
+
+function trefoilKnotNormal(t) {
+	let tangent = trefoilKnotTangent(t);
+	let normal = vec3.normalize(vec3.cross(tangent, vec3.create(-tangent.y,tangent.x,1)));
+	return normal;
 }
 
 async function loadOBJ(file){
