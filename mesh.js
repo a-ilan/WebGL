@@ -289,8 +289,7 @@ function trefoilKnotTangent(t) {
 
 function trefoilKnotNormal(t) {
 	let tangent = trefoilKnotTangent(t);
-	let normal = vec3.normalize(vec3.cross(tangent, vec3.create(-tangent.y,tangent.x,1)));
-	return normal;
+	return vec3.normalize(vec3.cross(tangent, vec3.create(-tangent.y,tangent.x,1)));
 }
 
 async function loadOBJ(file){

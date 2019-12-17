@@ -14,10 +14,11 @@ layout (location=1) in vec3 inNormal;
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 out vec3 normal;
+out mat3 normalMatrix;
 
 void main() {
-	mat3 normalMatrix = inverse(transpose(mat3(modelViewMatrix)));
-	normal = normalize(normalMatrix*inNormal);
+	normalMatrix = inverse(transpose(mat3(modelViewMatrix)));
+	normal = inNormal;
 	gl_Position = projectionMatrix*modelViewMatrix*vec4(inPosition,1);
 }
 </script>
@@ -26,11 +27,13 @@ void main() {
 #version 300 es
 precision mediump float;
 in vec3 normal;
+in mat3 normalMatrix;
 out vec4 fragColor;
 
 void main() {
+	vec3 normalVec =  normalize(normalMatrix*normal);
 	vec3 lightVec = normalize(vec3(0,0,1));
-	float diffuse = max(dot(normal,lightVec),0.0);
+	float diffuse = max(dot(normalVec,lightVec),0.0);
 	fragColor = vec4(diffuse,diffuse,diffuse,1);
 }
 </script>
@@ -131,68 +134,83 @@ async function start() {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
 	
+	let render = rotate => {
+		// rotate and draw
+		let modelViewMatrix = mat4.mul(mat4.translate(0,0,-3),mat4.rotate(rotate.x,vec3.create(1,0,0)),mat4.rotate(rotate.y,vec3.create(0,1,0)),mat4.translate(0,-0.5,0));
+		gl.uniformMatrix4fv(modelViewMatrixLocation,false, mat4.transpose(modelViewMatrix));
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
+	};
+	
 	// Input
-	input();
+	input(render);
 }
 
-function input(){
+function input(render){
 	// model view matrix
 	let modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
 
 	//Input
 	const rect = canvas.getBoundingClientRect();
-	let mouse = {
-		down: false,
+	let touch = {
 		x: 0,
-		y: 0,
-		dx: 0,
-		dy: 0
+		y: 0
 	};
 	let rotate = {
 		x: 0, // around the x axis
 		y: 0 // around the y axis
-	}
+	};
 	let lastTime = 0;
 	
 	canvas.addEventListener( 'contextmenu', e => {
 		e.preventDefault(); //disable context menu on right click
 	} );
 	canvas.addEventListener( 'mousemove', e => {
-		if(mouse.down){
-			// limit to 20 frames per second
-			if(Date.now() - lastTime < 50) return;
+		if((event.buttons & 0x1) === 0x1 || (event.buttons & 0x2) === 0x2){
+			if(Date.now() - lastTime < 1000/60) return;
 			lastTime = Date.now();
 			
 			// get change in mouse position
-			let x = (e.clientX - rect.left)/rect.right;
-			let y = (e.clientY - rect.top)/rect.bottom;
-			mouse.dx = x - mouse.x;
-			mouse.dy = y - mouse.y;
-			mouse.x = x;
-			mouse.y = y;
-			rotate.x += 2*mouse.dy*Math.PI;
-			rotate.y += 2*mouse.dx*Math.PI;
+			let dx = (e.movementX)/rect.width;
+			let dy = (e.movementY)/rect.height;
+			rotate.x += 2*dy*Math.PI;
+			rotate.y += 2*dx*Math.PI;
 			if(rotate.x > Math.PI/2) rotate.x = Math.PI/2;
 			if(rotate.x < -Math.PI/2) rotate.x = -Math.PI/2;
 			
-			// rotate and draw
-			let modelViewMatrix = mat4.mul(mat4.translate(0,0,-3),mat4.rotate(rotate.x,vec3.create(1,0,0)),mat4.rotate(rotate.y,vec3.create(0,1,0)),mat4.translate(0,-0.5,0));
-			gl.uniformMatrix4fv(modelViewMatrixLocation,false, mat4.transpose(modelViewMatrix));
-			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-			gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
+			requestAnimationFrame(_ => render(rotate));
 		}
-	} );
-	canvas.addEventListener( 'mousedown', e => {
-		mouse.x = (e.clientX - rect.left)/rect.right;
-		mouse.y = (e.clientY - rect.top)/rect.bottom;
-		mouse.down = true;
-	} );
-	canvas.addEventListener( 'mouseup', (  ) => {
-		mouse.down = false;
-	} );
-	canvas.addEventListener( 'mouseleave', (  ) => {
-		mouse.down = false;
-	} );
+	});
+	canvas.addEventListener( 'touchmove', e => {
+		e.preventDefault();
+		if(event.touches.length > 0){
+			if(Date.now() - lastTime < 1000/60) return;
+			lastTime = Date.now();
+			
+			//
+			let t = event.touches[0];
+			let touch_x = (t.clientX - rect.left)/(rect.width);
+			let touch_y = (t.clientY - rect.top)/(rect.height);
+			let dx = touch.x - touch_x;
+			let dy = touch.y - touch_y;
+			touch.x = touch_x;
+			touch.y = touch_y;
+			rotate.x -= 2*dy*Math.PI;
+			rotate.y -= 2*dx*Math.PI;
+			if(rotate.x > Math.PI/2) rotate.x = Math.PI/2;
+			if(rotate.x < -Math.PI/2) rotate.x = -Math.PI/2;
+			
+			requestAnimationFrame(_ => render(rotate));
+		}
+	});
+	
+	canvas.addEventListener( 'touchstart', e => {
+		if(event.touches.length > 0){
+			let t = event.touches[0];
+			touch.x = (t.clientX - rect.left)/(rect.width);
+			touch.y = (t.clientY - rect.top)/(rect.height);
+		}
+	});
 }
 
 function cleanup(){
